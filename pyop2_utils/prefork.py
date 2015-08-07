@@ -10,6 +10,15 @@ parent process.
 Since none of this is MPI-specific, it got parked in pytools.
 """
 from __future__ import absolute_import
+import signal
+import os
+import atexit
+from struct import calcsize, unpack, pack
+from warnings import warn
+from six.moves.cPickle import loads, dumps
+from subprocess import call
+from subprocess import Popen, PIPE
+from socket import socketpair
 
 
 
@@ -24,7 +33,6 @@ class ExecError(OSError):
 class DirectForker:
     @staticmethod
     def call(cmdline, cwd=None):
-        from subprocess import call
         try:
             return call(cmdline, cwd=cwd)
         except OSError as e:
@@ -33,7 +41,6 @@ class DirectForker:
 
     @staticmethod
     def call_capture_stdout(cmdline, cwd=None):
-        from subprocess import Popen, PIPE
         try:
             return Popen(cmdline, cwd=cwd, stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate()[0]
         except OSError as e:
@@ -45,7 +52,6 @@ class DirectForker:
         """
         :returns: a tuple (return code, stdout_data, stderr_data).
         """
-        from subprocess import Popen, PIPE
         try:
             popen = Popen(cmdline, cwd=cwd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
             stdout_data, stderr_data = popen.communicate()
@@ -60,21 +66,16 @@ class DirectForker:
 
 
 def _send_packet(sock, data):
-    from struct import pack
-    from six.moves.cPickle import dumps
-
     packet = dumps(data)
 
     sock.sendall(pack("I", len(packet)))
     sock.sendall(packet)
 
 def _recv_packet(sock, who="Process", partner="other end"):
-    from struct import calcsize, unpack
     size_bytes_size = calcsize("I")
     size_bytes = sock.recv(size_bytes_size)
 
     if len(size_bytes) < size_bytes_size:
-        from warnings import warn
         warn("%s exiting upon apparent death of %s" % (who, partner))
 
         raise SystemExit
@@ -85,14 +86,12 @@ def _recv_packet(sock, who="Process", partner="other end"):
     while len(packet) < size:
         packet += sock.recv(size)
 
-    from six.moves.cPickle import loads
     return loads(packet)
 
 
 
 
 def _fork_server(sock):
-    import signal
     # ignore keyboard interrupts, we'll get notified by the parent.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
@@ -122,7 +121,6 @@ def _fork_server(sock):
     finally:
         sock.close()
 
-    import os
     os._exit(0)
 
 
@@ -146,9 +144,8 @@ class IndirectForker:
 
     def _quit(self):
         self._remote_invoke("quit")
-        from os import waitpid
         try:
-            waitpid(self.server_pid, 0)
+            os.waitpid(self.server_pid, 0)
         except OSError as e:
             if e.errno == os.errno.ECHILD:
                 # Child already exited, can ignore
@@ -172,11 +169,9 @@ def enable_prefork():
     if isinstance(forker[0], IndirectForker):
         return
 
-    from socket import socketpair
     s_parent, s_child = socketpair()
 
-    from os import fork
-    fork_res = fork()
+    fork_res = os.fork()
 
     if fork_res == 0:
         # child
@@ -186,7 +181,6 @@ def enable_prefork():
         s_child.close()
         forker[0] = IndirectForker(fork_res, s_parent)
 
-        import atexit
         atexit.register(forker[0]._quit)
 
 
@@ -198,7 +192,6 @@ def call(cmdline, cwd=None):
     return forker[0].call(cmdline, cwd)
 
 def call_capture_stdout(cmdline, cwd=None):
-    from warnings import warn
     warn("call_capture_stdout is deprecated: use call_capture_output instead",
             stacklevel=2)
     return forker[0].call_capture_stdout(cmdline, cwd)
