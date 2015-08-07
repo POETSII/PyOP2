@@ -40,7 +40,7 @@ import sys
 import numpy as np
 from decorator import decorator
 import argparse
-from subprocess import Popen, PIPE
+from pyop2_utils import prefork
 
 from exceptions import DataTypeError, DataValueError
 from configuration import configuration
@@ -295,9 +295,9 @@ def parse_args(*args, **kwargs):
 
 def preprocess(text, include_dirs=[]):
     cmd = ['cpp', '-std=c99', '-E', '-I' + os.path.dirname(__file__)] + ['-I' + d for d in include_dirs]
-    p = Popen(cmd, stdin=PIPE, stdout=PIPE, universal_newlines=True)
+    retval, stdout, stderr = prefork.call_capture_output(cmd)
     # Strip empty lines and any preprocessor instructions other than pragmas
-    processed = '\n'.join(l for l in p.communicate(text)[0].split('\n')
+    processed = '\n'.join(l for l in stdout.split('\n')
                           if l.strip() and (not l.startswith('#') or l.startswith('#pragma')))
     return processed
 

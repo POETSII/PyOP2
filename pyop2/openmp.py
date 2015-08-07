@@ -37,7 +37,7 @@ import ctypes
 import math
 import numpy as np
 import os
-from subprocess import Popen, PIPE
+from pyop2_utils import prefork
 
 from base import ON_BOTTOM, ON_TOP, ON_INTERIOR_FACETS
 from exceptions import *
@@ -57,14 +57,14 @@ _padding = 8
 
 
 def _detect_openmp_flags():
-    p = Popen(['mpicc', '--version'], stdout=PIPE, shell=False)
-    _version, _ = p.communicate()
-    if _version.find('Free Software Foundation') != -1:
+    retval, stdout, stderr = prefork.call_capture_output(['mpicc',
+                                                          '--version'])
+    if stdout.find('Free Software Foundation') != -1:
         return '-fopenmp', '-lgomp'
-    elif _version.find('Intel Corporation') != -1:
+    elif stdout.find('Intel Corporation') != -1:
         return '-openmp', '-liomp5'
     else:
-        warning('Unknown mpicc version:\n%s' % _version)
+        warning('Unknown mpicc version:\n%s' % stdout)
         return '', ''
 
 
