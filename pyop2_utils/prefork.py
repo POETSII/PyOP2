@@ -147,7 +147,13 @@ class IndirectForker:
     def _quit(self):
         self._remote_invoke("quit")
         from os import waitpid
-        waitpid(self.server_pid, 0)
+        try:
+            waitpid(self.server_pid, 0)
+        except OSError as e:
+            if e.errno == os.errno.ECHILD:
+                # Child already exited, can ignore
+                return
+            raise e
 
     def call(self, cmdline, cwd=None):
         return self._remote_invoke("call", cmdline, cwd)
