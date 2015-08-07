@@ -36,6 +36,7 @@ from __future__ import absolute_import
 __all__ = ["enable_mpi_prefork"]
 
 from pyop2_utils import prefork
+import sys
 
 
 initialized = False
@@ -45,5 +46,10 @@ def enable_mpi_prefork():
     """Start a fork server and then enable MPI."""
     global initialized
     if not initialized:
+        # Check if mpi4py is already imported and initialised
+        # We can't fork after it so raise an error
+        mpi_mod = sys.modules.get("mpi4py.MPI")
+        if mpi_mod and mpi_mod.Is_initialized():
+            raise RuntimeError("Attempting to start fork server after MPI_Init")
         prefork.enable_prefork()
         initialized = True
