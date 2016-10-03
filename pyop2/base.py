@@ -36,6 +36,7 @@ information which is backend independent. Individual runtime backends should
 subclass these as required to implement backend-specific features.
 """
 
+from contextlib import contextmanager
 import itertools
 import numpy as np
 import ctypes
@@ -58,7 +59,18 @@ from coffee.visitors import FindInstances, EstimateFlops
 from coffee import base as ast
 
 
+@contextmanager
+def collecting_loops():
+    try:
+        LazyComputation.enqueue_loops = False
+        yield
+    finally:
+        LazyComputation.enqueue_loops = True
+
+
 class LazyComputation(object):
+
+    enqueue_loops = True
 
     """Helper class holding computation to be carried later on.
     """
@@ -73,8 +85,9 @@ class LazyComputation(object):
         self._scheduled = False
 
     def enqueue(self):
-        global _trace
-        _trace.append(self)
+        if LazyComputation.enqueue_loops:
+            global _trace
+            _trace.append(self)
         return self
 
     def __call__(self):
