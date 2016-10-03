@@ -77,6 +77,9 @@ class LazyComputation(object):
         _trace.append(self)
         return self
 
+    def __call__(self):
+        self.enqueue()
+
     def _run(self):
         assert False, "Not implemented"
 
