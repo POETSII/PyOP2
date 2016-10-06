@@ -3910,7 +3910,7 @@ class ParLoop(LazyComputation):
         """
         return ()
 
-    @property
+    @cached_property
     def num_flops(self):
         iterset = self.iterset
         size = iterset.size
